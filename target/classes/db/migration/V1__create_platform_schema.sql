@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS platform_health_check (
+    id UUID PRIMARY KEY,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    description VARCHAR(255) NOT NULL
+);

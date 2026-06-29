@@ -1,37 +1,30 @@
-# Boom Backend
+# Boom Backend Patch - Parent Dashboard Mock Endpoint
 
-Spring Boot backend for the Boom learning platform.
+This patch adds the first parent dashboard API contract.
 
-## Stack
+Endpoint:
 
-- Java 21
-- Spring Boot 3.3.x
-- Maven
-- PostgreSQL
-- Flyway
-- Redis
-- Spring Actuator
-- Docker
-
-## Run locally
-
-Start infrastructure:
-
-```bash
-cd ../boom-infrastructure
-make up
+```text
+GET /api/v1/parents/dashboard
 ```
 
-Run backend:
+It returns realistic seed/mock data for the frontend PoC.
+
+## Apply
 
 ```bash
-cd ../boom-backend
+cd ~/projects/boom/boom-backend
+cp -R /tmp/boom-sprint4/boom-backend-patch/* .
+```
+
+## Run
+
+```bash
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
-## Health checks
+## Test
 
 ```bash
-curl http://localhost:8080/actuator/health
-curl http://localhost:8080/api/v1/system/ping
+curl http://localhost:8080/api/v1/parents/dashboard
 ```
