@@ -1,0 +1,5 @@
+package com.boom.ai.coachingprofile.domain;
+
+public enum TeachingMethod {
+    MASTERY_LEARNING, ADAPTIVE_DAILY_PRACTICE, ITALIAN_CURRICULUM_ALIGNED, PROJECT_BASED, EXAM_PREPARATION, REMEDIATION_FIRST, CUSTOM
+}
