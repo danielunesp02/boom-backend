@@ -2,23 +2,27 @@ package com.boom.parentdashboard.application;
 
 import com.boom.parentdashboard.api.dto.ParentDashboardResponse;
 import com.boom.parentdashboard.api.dto.TrendDirection;
+import com.boom.student.domain.GradeLevel;
+import com.boom.student.domain.Student;
+import com.boom.student.domain.TargetSchoolSystem;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 @Service
 public class ParentDashboardMockService {
 
-    public ParentDashboardResponse getDashboard(String requestedLocale, DashboardPeriod period) {
+    public ParentDashboardResponse getDashboard(String requestedLocale, DashboardPeriod period, Student student) {
         Labels labels = labels(requestedLocale);
         CurrentMetrics current = currentMetrics(period);
         CurrentMetrics previous = previousMetrics(period, current);
 
         return new ParentDashboardResponse(
-                student(),
+                student(student),
                 weeklySummary(current),
                 selectedPeriod(period, labels),
                 metrics(current, previous, labels),
@@ -31,12 +35,34 @@ public class ParentDashboardMockService {
         );
     }
 
-    private ParentDashboardResponse.StudentSummary student() {
+    /**
+     * Kept for existing unit tests and local callers.
+     * Runtime dashboard requests should use the overload that receives the real Student.
+     */
+    public ParentDashboardResponse getDashboard(String requestedLocale, DashboardPeriod period) {
+        return getDashboard(
+                requestedLocale,
+                period,
+                new Student(
+                        UUID.nameUUIDFromBytes("student-helena".getBytes()),
+                        "Helena Bevilacqua",
+                        null,
+                        GradeLevel.GRADE_7,
+                        TargetSchoolSystem.ITALY,
+                        "pt-BR",
+                        com.boom.student.domain.StudentStatus.ACTIVE,
+                        java.time.Instant.now(),
+                        java.time.Instant.now()
+                )
+        );
+    }
+
+    private ParentDashboardResponse.StudentSummary student(Student student) {
         return new ParentDashboardResponse.StudentSummary(
-                "student-helena",
-                "Helena",
-                "Lower Secondary",
-                "Italy - Scuola Secondaria di Primo Grado"
+                student.id().toString(),
+                student.displayName(),
+                student.gradeLevel().name(),
+                student.targetSchoolSystem().name()
         );
     }
 
@@ -50,7 +76,8 @@ public class ParentDashboardMockService {
     }
 
     private ParentDashboardResponse.SelectedPeriod selectedPeriod(DashboardPeriod period, Labels labels) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH);
+        Locale locale = labels.locale();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM d", locale);
         String label = period.startDate().format(formatter) + " - " + period.endDate().format(formatter);
         String comparison = period.comparisonStartDate().format(formatter) + " - " + period.comparisonEndDate().format(formatter);
 
@@ -212,6 +239,7 @@ public class ParentDashboardMockService {
     }
 
     private record Labels(
+            Locale locale,
             String completedActivities,
             String studyTime,
             String accuracy,
@@ -243,6 +271,7 @@ public class ParentDashboardMockService {
     ) {
         static Labels en() {
             return new Labels(
+                    Locale.ENGLISH,
                     "Completed activities",
                     "Study time",
                     "Accuracy",
@@ -276,6 +305,7 @@ public class ParentDashboardMockService {
 
         static Labels pt() {
             return new Labels(
+                    new Locale("pt", "BR"),
                     "Atividades concluídas",
                     "Tempo de estudo",
                     "Precisão",
