@@ -1,18 +1,21 @@
 package com.boom.parentdashboard.api.dto;
 
+import java.time.LocalDate;
 import java.util.List;
 
 public record ParentDashboardResponse(
-        Student student,
+        StudentSummary student,
         WeeklySummary weeklySummary,
-        List<ActivityHistoryPoint> activityHistory,
+        SelectedPeriod selectedPeriod,
+        List<MetricSummary> metrics,
+        List<ActivityHistoryItem> activityHistory,
         List<SubjectPerformance> subjectPerformance,
         List<LearningGap> learningGaps,
         CurrentActionPlan currentActionPlan,
         List<RecentActivitySummary> recentActivitySummaries,
-        EmptyState emptyState
+        Object emptyState
 ) {
-    public record Student(
+    public record StudentSummary(
             String id,
             String displayName,
             String gradeLevel,
@@ -28,8 +31,31 @@ public record ParentDashboardResponse(
     ) {
     }
 
-    public record ActivityHistoryPoint(
-            String date,
+    public record SelectedPeriod(
+            DashboardPeriodPreset preset,
+            LocalDate startDate,
+            LocalDate endDate,
+            LocalDate comparisonStartDate,
+            LocalDate comparisonEndDate,
+            String label,
+            String comparisonLabel
+    ) {
+    }
+
+    public record MetricSummary(
+            String id,
+            String label,
+            String value,
+            String helperText,
+            TrendDirection trendDirection,
+            String trendLabel,
+            Double trendPercent,
+            boolean higherIsBetter
+    ) {
+    }
+
+    public record ActivityHistoryItem(
+            LocalDate date,
             int completedActivities,
             Integer accuracy,
             int studyTimeMinutes
@@ -81,18 +107,12 @@ public record ParentDashboardResponse(
 
     public record RecentActivitySummary(
             String activityId,
-            String date,
+            LocalDate date,
             String activityTitle,
             String subjectName,
             int accuracy,
             int durationMinutes,
             String summaryText
-    ) {
-    }
-
-    public record EmptyState(
-            String title,
-            String description
     ) {
     }
 }

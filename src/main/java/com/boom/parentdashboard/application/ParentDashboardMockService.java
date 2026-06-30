@@ -1,342 +1,310 @@
 package com.boom.parentdashboard.application;
 
 import com.boom.parentdashboard.api.dto.ParentDashboardResponse;
+import com.boom.parentdashboard.api.dto.TrendDirection;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 public class ParentDashboardMockService {
 
-    public ParentDashboardResponse getDashboard(String boomLocale, String acceptLanguage) {
-        DashboardLocale locale = DashboardLocale.resolve(boomLocale, acceptLanguage);
+    public ParentDashboardResponse getDashboard(String requestedLocale, DashboardPeriod period) {
+        Labels labels = labels(requestedLocale);
+        CurrentMetrics current = currentMetrics(period);
+        CurrentMetrics previous = previousMetrics(period, current);
 
         return new ParentDashboardResponse(
-                student(locale),
-                weeklySummary(),
-                activityHistory(),
-                subjectPerformance(locale),
-                learningGaps(locale),
-                currentActionPlan(locale),
-                recentActivitySummaries(locale),
+                student(),
+                weeklySummary(current),
+                selectedPeriod(period, labels),
+                metrics(current, previous, labels),
+                activityHistory(period),
+                subjectPerformance(labels),
+                learningGaps(labels),
+                currentActionPlan(labels),
+                recentActivitySummaries(period, labels),
                 null
         );
     }
 
-    private ParentDashboardResponse.Student student(DashboardLocale locale) {
-        return switch (locale) {
-            case PT_BR -> new ParentDashboardResponse.Student(
-                    "student-helena",
-                    "Helena",
-                    "Ensino fundamental II",
-                    "Itália - Scuola Secondaria di Primo Grado"
-            );
-            case IT_IT -> new ParentDashboardResponse.Student(
-                    "student-helena",
-                    "Helena",
-                    "Scuola secondaria inferiore",
-                    "Italia - Scuola Secondaria di Primo Grado"
-            );
-            case ES_ES -> new ParentDashboardResponse.Student(
-                    "student-helena",
-                    "Helena",
-                    "Secundaria inferior",
-                    "Italia - Scuola Secondaria di Primo Grado"
-            );
-            case EN_US -> new ParentDashboardResponse.Student(
-                    "student-helena",
-                    "Helena",
-                    "Lower Secondary",
-                    "Italy - Scuola Secondaria di Primo Grado"
-            );
-        };
-    }
-
-    private ParentDashboardResponse.WeeklySummary weeklySummary() {
-        return new ParentDashboardResponse.WeeklySummary(5, 130, 76, 3);
-    }
-
-    private List<ParentDashboardResponse.ActivityHistoryPoint> activityHistory() {
-        return List.of(
-                new ParentDashboardResponse.ActivityHistoryPoint("2026-06-23", 1, 68, 20),
-                new ParentDashboardResponse.ActivityHistoryPoint("2026-06-24", 1, 72, 25),
-                new ParentDashboardResponse.ActivityHistoryPoint("2026-06-25", 0, null, 0),
-                new ParentDashboardResponse.ActivityHistoryPoint("2026-06-26", 1, 76, 30),
-                new ParentDashboardResponse.ActivityHistoryPoint("2026-06-27", 1, 82, 25),
-                new ParentDashboardResponse.ActivityHistoryPoint("2026-06-28", 1, 81, 30),
-                new ParentDashboardResponse.ActivityHistoryPoint("2026-06-29", 0, null, 0)
+    private ParentDashboardResponse.StudentSummary student() {
+        return new ParentDashboardResponse.StudentSummary(
+                "student-helena",
+                "Helena",
+                "Lower Secondary",
+                "Italy - Scuola Secondaria di Primo Grado"
         );
     }
 
-    private List<ParentDashboardResponse.SubjectPerformance> subjectPerformance(DashboardLocale locale) {
-        return switch (locale) {
-            case PT_BR -> List.of(
-                    new ParentDashboardResponse.SubjectPerformance("math", "Matemática", 68, 55, "IMPROVING", 2),
-                    new ParentDashboardResponse.SubjectPerformance("english", "Inglês", 84, 35, "STABLE", 0),
-                    new ParentDashboardResponse.SubjectPerformance("science", "Ciências", 73, 40, "IMPROVING", 1)
-            );
-            case IT_IT -> List.of(
-                    new ParentDashboardResponse.SubjectPerformance("math", "Matematica", 68, 55, "IMPROVING", 2),
-                    new ParentDashboardResponse.SubjectPerformance("english", "Inglese", 84, 35, "STABLE", 0),
-                    new ParentDashboardResponse.SubjectPerformance("science", "Scienze", 73, 40, "IMPROVING", 1)
-            );
-            case ES_ES -> List.of(
-                    new ParentDashboardResponse.SubjectPerformance("math", "Matemáticas", 68, 55, "IMPROVING", 2),
-                    new ParentDashboardResponse.SubjectPerformance("english", "Inglés", 84, 35, "STABLE", 0),
-                    new ParentDashboardResponse.SubjectPerformance("science", "Ciencias", 73, 40, "IMPROVING", 1)
-            );
-            case EN_US -> List.of(
-                    new ParentDashboardResponse.SubjectPerformance("math", "Mathematics", 68, 55, "IMPROVING", 2),
-                    new ParentDashboardResponse.SubjectPerformance("english", "English", 84, 35, "STABLE", 0),
-                    new ParentDashboardResponse.SubjectPerformance("science", "Science", 73, 40, "IMPROVING", 1)
-            );
+    private ParentDashboardResponse.WeeklySummary weeklySummary(CurrentMetrics current) {
+        return new ParentDashboardResponse.WeeklySummary(
+                current.completedActivities(),
+                current.studyTimeMinutes(),
+                current.accuracy(),
+                3
+        );
+    }
+
+    private ParentDashboardResponse.SelectedPeriod selectedPeriod(DashboardPeriod period, Labels labels) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH);
+        String label = period.startDate().format(formatter) + " - " + period.endDate().format(formatter);
+        String comparison = period.comparisonStartDate().format(formatter) + " - " + period.comparisonEndDate().format(formatter);
+
+        return new ParentDashboardResponse.SelectedPeriod(
+                period.preset(),
+                period.startDate(),
+                period.endDate(),
+                period.comparisonStartDate(),
+                period.comparisonEndDate(),
+                label,
+                labels.comparedTo() + " " + comparison
+        );
+    }
+
+    private List<ParentDashboardResponse.MetricSummary> metrics(CurrentMetrics current, CurrentMetrics previous, Labels labels) {
+        return List.of(
+                metric("completedActivities", labels.completedActivities(), String.valueOf(current.completedActivities()), labels.activitiesHelper(),
+                        current.completedActivities(), previous.completedActivities(), true, labels),
+                metric("studyTime", labels.studyTime(), formatMinutes(current.studyTimeMinutes()), labels.studyTimeHelper(),
+                        current.studyTimeMinutes(), previous.studyTimeMinutes(), true, labels),
+                metric("accuracy", labels.accuracy(), current.accuracy() + "%", labels.accuracyHelper(),
+                        current.accuracy(), previous.accuracy(), true, labels),
+                metric("activeGaps", labels.activeGaps(), String.valueOf(current.activeGaps()), labels.activeGapsHelper(),
+                        current.activeGaps(), previous.activeGaps(), false, labels)
+        );
+    }
+
+    private ParentDashboardResponse.MetricSummary metric(
+            String id,
+            String label,
+            String value,
+            String helperText,
+            double current,
+            double previous,
+            boolean higherIsBetter,
+            Labels labels
+    ) {
+        double delta = current - previous;
+        double percent = previous == 0 ? 0 : Math.round((delta / previous) * 1000.0) / 10.0;
+
+        TrendDirection direction;
+        if (Math.abs(percent) < 1.0) {
+            direction = TrendDirection.STABLE;
+        } else if ((delta > 0 && higherIsBetter) || (delta < 0 && !higherIsBetter)) {
+            direction = TrendDirection.UP;
+        } else {
+            direction = TrendDirection.DOWN;
+        }
+
+        String trendLabel = switch (direction) {
+            case UP -> "+" + Math.abs(percent) + "% " + labels.improved();
+            case DOWN -> "-" + Math.abs(percent) + "% " + labels.worse();
+            case STABLE -> labels.stable();
+        };
+
+        return new ParentDashboardResponse.MetricSummary(
+                id,
+                label,
+                value,
+                helperText,
+                direction,
+                trendLabel,
+                percent,
+                higherIsBetter
+        );
+    }
+
+    private List<ParentDashboardResponse.ActivityHistoryItem> activityHistory(DashboardPeriod period) {
+        LocalDate end = period.endDate();
+        return List.of(
+                new ParentDashboardResponse.ActivityHistoryItem(end.minusDays(6), 1, 68, 20),
+                new ParentDashboardResponse.ActivityHistoryItem(end.minusDays(5), 1, 72, 25),
+                new ParentDashboardResponse.ActivityHistoryItem(end.minusDays(4), 0, null, 0),
+                new ParentDashboardResponse.ActivityHistoryItem(end.minusDays(3), 1, 76, 30),
+                new ParentDashboardResponse.ActivityHistoryItem(end.minusDays(2), 1, 82, 25),
+                new ParentDashboardResponse.ActivityHistoryItem(end.minusDays(1), 1, 81, 30),
+                new ParentDashboardResponse.ActivityHistoryItem(end, 0, null, 0)
+        );
+    }
+
+    private List<ParentDashboardResponse.SubjectPerformance> subjectPerformance(Labels labels) {
+        return List.of(
+                new ParentDashboardResponse.SubjectPerformance("math", labels.math(), 68, 55, "IMPROVING", 2),
+                new ParentDashboardResponse.SubjectPerformance("english", labels.english(), 84, 35, "STABLE", 0),
+                new ParentDashboardResponse.SubjectPerformance("science", labels.science(), 73, 40, "IMPROVING", 1)
+        );
+    }
+
+    private List<ParentDashboardResponse.LearningGap> learningGaps(Labels labels) {
+        return List.of(
+                new ParentDashboardResponse.LearningGap("gap-fractions", labels.math(), labels.fractions(), labels.equivalentFractions(), "MEDIUM", "IN_PROGRESS", 6, 45),
+                new ParentDashboardResponse.LearningGap("gap-science-charts", labels.science(), labels.scientificCharts(), labels.interpretChartEvidence(), "LOW", "OPEN", 2, 18)
+        );
+    }
+
+    private ParentDashboardResponse.CurrentActionPlan currentActionPlan(Labels labels) {
+        return new ParentDashboardResponse.CurrentActionPlan(
+                "plan-fractions",
+                labels.actionPlanTitle(),
+                labels.actionPlanDescription(),
+                labels.math(),
+                labels.fractions(),
+                labels.equivalentFractions(),
+                "MEDIUM",
+                45,
+                40,
+                List.of(
+                        new ParentDashboardResponse.ActionPlanItem(labels.actionPlanItem1(), 10, "COMPLETED"),
+                        new ParentDashboardResponse.ActionPlanItem(labels.actionPlanItem2(), 20, "IN_PROGRESS"),
+                        new ParentDashboardResponse.ActionPlanItem(labels.actionPlanItem3(), 15, "PENDING")
+                )
+        );
+    }
+
+    private List<ParentDashboardResponse.RecentActivitySummary> recentActivitySummaries(DashboardPeriod period, Labels labels) {
+        return List.of(
+                new ParentDashboardResponse.RecentActivitySummary("act-2026-06-28", period.endDate().minusDays(1), labels.fractionsPractice(), labels.math(), 81, 30, labels.fractionsSummary()),
+                new ParentDashboardResponse.RecentActivitySummary("act-2026-06-27", period.endDate().minusDays(2), labels.readingComprehension(), labels.english(), 88, 25, labels.readingSummary())
+        );
+    }
+
+    private CurrentMetrics currentMetrics(DashboardPeriod period) {
+        return switch (period.preset()) {
+            case LAST_7_DAYS -> new CurrentMetrics(5, 130, 76, 3);
+            case LAST_90_DAYS -> new CurrentMetrics(58, 1440, 78, 6);
+            case CURRENT_MONTH -> new CurrentMetrics(22, 520, 79, 4);
+            case CUSTOM -> new CurrentMetrics(18, 420, 77, 5);
+            case LAST_30_DAYS -> new CurrentMetrics(26, 660, 80, 4);
         };
     }
 
-    private List<ParentDashboardResponse.LearningGap> learningGaps(DashboardLocale locale) {
-        return switch (locale) {
-            case PT_BR -> List.of(
-                    new ParentDashboardResponse.LearningGap(
-                            "gap-fractions",
-                            "Matemática",
-                            "Frações",
-                            "Frações equivalentes",
-                            "MEDIUM",
-                            "IN_PROGRESS",
-                            6,
-                            45
-                    ),
-                    new ParentDashboardResponse.LearningGap(
-                            "gap-science-charts",
-                            "Ciências",
-                            "Gráficos científicos",
-                            "Interpretar evidências em gráficos",
-                            "LOW",
-                            "OPEN",
-                            2,
-                            18
-                    )
-            );
-            case IT_IT -> List.of(
-                    new ParentDashboardResponse.LearningGap(
-                            "gap-fractions",
-                            "Matematica",
-                            "Frazioni",
-                            "Frazioni equivalenti",
-                            "MEDIUM",
-                            "IN_PROGRESS",
-                            6,
-                            45
-                    ),
-                    new ParentDashboardResponse.LearningGap(
-                            "gap-science-charts",
-                            "Scienze",
-                            "Grafici scientifici",
-                            "Interpretare evidenze nei grafici",
-                            "LOW",
-                            "OPEN",
-                            2,
-                            18
-                    )
-            );
-            case ES_ES -> List.of(
-                    new ParentDashboardResponse.LearningGap(
-                            "gap-fractions",
-                            "Matemáticas",
-                            "Fracciones",
-                            "Fracciones equivalentes",
-                            "MEDIUM",
-                            "IN_PROGRESS",
-                            6,
-                            45
-                    ),
-                    new ParentDashboardResponse.LearningGap(
-                            "gap-science-charts",
-                            "Ciencias",
-                            "Gráficos científicos",
-                            "Interpretar evidencia en gráficos",
-                            "LOW",
-                            "OPEN",
-                            2,
-                            18
-                    )
-            );
-            case EN_US -> List.of(
-                    new ParentDashboardResponse.LearningGap(
-                            "gap-fractions",
-                            "Mathematics",
-                            "Fractions",
-                            "Equivalent fractions",
-                            "MEDIUM",
-                            "IN_PROGRESS",
-                            6,
-                            45
-                    ),
-                    new ParentDashboardResponse.LearningGap(
-                            "gap-science-charts",
-                            "Science",
-                            "Scientific charts",
-                            "Interpret chart evidence",
-                            "LOW",
-                            "OPEN",
-                            2,
-                            18
-                    )
-            );
+    private CurrentMetrics previousMetrics(DashboardPeriod period, CurrentMetrics current) {
+        return switch (period.preset()) {
+            case LAST_7_DAYS -> new CurrentMetrics(4, 145, 74, 4);
+            case LAST_90_DAYS -> new CurrentMetrics(51, 1380, 76, 7);
+            case CURRENT_MONTH -> new CurrentMetrics(19, 560, 79, 4);
+            case CUSTOM -> new CurrentMetrics(16, 430, 78, 5);
+            case LAST_30_DAYS -> new CurrentMetrics(21, 610, 77, 5);
         };
     }
 
-    private ParentDashboardResponse.CurrentActionPlan currentActionPlan(DashboardLocale locale) {
-        return switch (locale) {
-            case PT_BR -> new ParentDashboardResponse.CurrentActionPlan(
-                    "plan-fractions",
-                    "Revisar frações equivalentes",
-                    "Praticar comparação visual de frações equivalentes antes de avançar para raciocínio proporcional.",
-                    "Matemática",
-                    "Frações",
-                    "Frações equivalentes",
-                    "MEDIUM",
-                    45,
-                    40,
-                    List.of(
-                            new ParentDashboardResponse.ActionPlanItem("Revisar explicação visual", 10, "COMPLETED"),
-                            new ParentDashboardResponse.ActionPlanItem("Praticar 10 questões visuais de frações", 20, "IN_PROGRESS"),
-                            new ParentDashboardResponse.ActionPlanItem("Refazer desafio curto", 15, "PENDING")
-                    )
-            );
-            case IT_IT -> new ParentDashboardResponse.CurrentActionPlan(
-                    "plan-fractions",
-                    "Ripassare le frazioni equivalenti",
-                    "Esercitare il confronto visivo delle frazioni equivalenti prima di passare al ragionamento proporzionale.",
-                    "Matematica",
-                    "Frazioni",
-                    "Frazioni equivalenti",
-                    "MEDIUM",
-                    45,
-                    40,
-                    List.of(
-                            new ParentDashboardResponse.ActionPlanItem("Rivedere la spiegazione visiva", 10, "COMPLETED"),
-                            new ParentDashboardResponse.ActionPlanItem("Esercitare 10 domande visive sulle frazioni", 20, "IN_PROGRESS"),
-                            new ParentDashboardResponse.ActionPlanItem("Ripetere una sfida breve", 15, "PENDING")
-                    )
-            );
-            case ES_ES -> new ParentDashboardResponse.CurrentActionPlan(
-                    "plan-fractions",
-                    "Repasar fracciones equivalentes",
-                    "Practicar la comparación visual de fracciones equivalentes antes de avanzar al razonamiento proporcional.",
-                    "Matemáticas",
-                    "Fracciones",
-                    "Fracciones equivalentes",
-                    "MEDIUM",
-                    45,
-                    40,
-                    List.of(
-                            new ParentDashboardResponse.ActionPlanItem("Revisar explicación visual", 10, "COMPLETED"),
-                            new ParentDashboardResponse.ActionPlanItem("Practicar 10 preguntas visuales de fracciones", 20, "IN_PROGRESS"),
-                            new ParentDashboardResponse.ActionPlanItem("Reintentar desafío corto", 15, "PENDING")
-                    )
-            );
-            case EN_US -> new ParentDashboardResponse.CurrentActionPlan(
-                    "plan-fractions",
-                    "Review equivalent fractions",
-                    "Practice visual comparison of equivalent fractions before moving to proportional reasoning.",
+    private String formatMinutes(int minutes) {
+        if (minutes < 60) {
+            return minutes + "m";
+        }
+        int hours = minutes / 60;
+        int remaining = minutes % 60;
+        return remaining == 0 ? hours + "h" : hours + "h " + remaining + "m";
+    }
+
+    private Labels labels(String locale) {
+        if (locale != null && locale.toLowerCase().startsWith("pt")) {
+            return Labels.pt();
+        }
+        return Labels.en();
+    }
+
+    private record CurrentMetrics(int completedActivities, int studyTimeMinutes, int accuracy, int activeGaps) {
+    }
+
+    private record Labels(
+            String completedActivities,
+            String studyTime,
+            String accuracy,
+            String activeGaps,
+            String activitiesHelper,
+            String studyTimeHelper,
+            String accuracyHelper,
+            String activeGapsHelper,
+            String comparedTo,
+            String improved,
+            String worse,
+            String stable,
+            String math,
+            String english,
+            String science,
+            String fractions,
+            String equivalentFractions,
+            String scientificCharts,
+            String interpretChartEvidence,
+            String actionPlanTitle,
+            String actionPlanDescription,
+            String actionPlanItem1,
+            String actionPlanItem2,
+            String actionPlanItem3,
+            String fractionsPractice,
+            String fractionsSummary,
+            String readingComprehension,
+            String readingSummary
+    ) {
+        static Labels en() {
+            return new Labels(
+                    "Completed activities",
+                    "Study time",
+                    "Accuracy",
+                    "Active gaps",
+                    "Activities completed in the selected period",
+                    "Total focused learning time",
+                    "Average correct answers",
+                    "Open learning gaps",
+                    "Compared to",
+                    "improved",
+                    "needs attention",
+                    "stable",
                     "Mathematics",
+                    "English",
+                    "Science",
                     "Fractions",
                     "Equivalent fractions",
-                    "MEDIUM",
-                    45,
-                    40,
-                    List.of(
-                            new ParentDashboardResponse.ActionPlanItem("Review visual explanation", 10, "COMPLETED"),
-                            new ParentDashboardResponse.ActionPlanItem("Practice 10 visual fraction questions", 20, "IN_PROGRESS"),
-                            new ParentDashboardResponse.ActionPlanItem("Retry short challenge", 15, "PENDING")
-                    )
+                    "Scientific charts",
+                    "Interpret chart evidence",
+                    "Review equivalent fractions",
+                    "Practice visual comparison of equivalent fractions before moving to proportional reasoning.",
+                    "Review visual explanation",
+                    "Practice 10 visual fraction questions",
+                    "Retry short challenge",
+                    "Fractions practice",
+                    "Helena improved in visual comparison but still needs practice recognizing equivalent fractions quickly.",
+                    "Reading comprehension",
+                    "Strong performance identifying the main idea and supporting details in short texts."
             );
-        };
-    }
+        }
 
-    private List<ParentDashboardResponse.RecentActivitySummary> recentActivitySummaries(DashboardLocale locale) {
-        return switch (locale) {
-            case PT_BR -> List.of(
-                    new ParentDashboardResponse.RecentActivitySummary(
-                            "act-2026-06-28",
-                            "2026-06-28",
-                            "Prática de frações",
-                            "Matemática",
-                            81,
-                            30,
-                            "Helena melhorou na comparação visual, mas ainda precisa praticar o reconhecimento rápido de frações equivalentes."
-                    ),
-                    new ParentDashboardResponse.RecentActivitySummary(
-                            "act-2026-06-27",
-                            "2026-06-27",
-                            "Compreensão de leitura",
-                            "Inglês",
-                            88,
-                            25,
-                            "Bom desempenho ao identificar a ideia principal e detalhes de apoio em textos curtos."
-                    )
+        static Labels pt() {
+            return new Labels(
+                    "Atividades concluídas",
+                    "Tempo de estudo",
+                    "Precisão",
+                    "Gaps ativos",
+                    "Atividades concluídas no período selecionado",
+                    "Tempo total de estudo focado",
+                    "Média de respostas corretas",
+                    "Lacunas de aprendizagem abertas",
+                    "Comparado com",
+                    "melhorou",
+                    "precisa atenção",
+                    "estável",
+                    "Matemática",
+                    "Inglês",
+                    "Ciências",
+                    "Frações",
+                    "Frações equivalentes",
+                    "Gráficos científicos",
+                    "Interpretar evidências em gráficos",
+                    "Revisar frações equivalentes",
+                    "Praticar comparação visual de frações equivalentes antes de avançar para raciocínio proporcional.",
+                    "Revisar explicação visual",
+                    "Praticar 10 questões visuais de frações",
+                    "Refazer desafio curto",
+                    "Prática de frações",
+                    "Helena melhorou na comparação visual, mas ainda precisa praticar o reconhecimento rápido de frações equivalentes.",
+                    "Compreensão de leitura",
+                    "Bom desempenho identificando ideia principal e detalhes de apoio em textos curtos."
             );
-            case IT_IT -> List.of(
-                    new ParentDashboardResponse.RecentActivitySummary(
-                            "act-2026-06-28",
-                            "2026-06-28",
-                            "Esercizio sulle frazioni",
-                            "Matematica",
-                            81,
-                            30,
-                            "Helena è migliorata nel confronto visivo, ma deve ancora esercitarsi a riconoscere rapidamente le frazioni equivalenti."
-                    ),
-                    new ParentDashboardResponse.RecentActivitySummary(
-                            "act-2026-06-27",
-                            "2026-06-27",
-                            "Comprensione del testo",
-                            "Inglese",
-                            88,
-                            25,
-                            "Buon risultato nell'identificare l'idea principale e i dettagli di supporto in testi brevi."
-                    )
-            );
-            case ES_ES -> List.of(
-                    new ParentDashboardResponse.RecentActivitySummary(
-                            "act-2026-06-28",
-                            "2026-06-28",
-                            "Práctica de fracciones",
-                            "Matemáticas",
-                            81,
-                            30,
-                            "Helena mejoró en la comparación visual, pero aún necesita practicar el reconocimiento rápido de fracciones equivalentes."
-                    ),
-                    new ParentDashboardResponse.RecentActivitySummary(
-                            "act-2026-06-27",
-                            "2026-06-27",
-                            "Comprensión lectora",
-                            "Inglés",
-                            88,
-                            25,
-                            "Buen desempeño al identificar la idea principal y los detalles de apoyo en textos cortos."
-                    )
-            );
-            case EN_US -> List.of(
-                    new ParentDashboardResponse.RecentActivitySummary(
-                            "act-2026-06-28",
-                            "2026-06-28",
-                            "Fractions practice",
-                            "Mathematics",
-                            81,
-                            30,
-                            "Helena improved in visual comparison but still needs practice recognizing equivalent fractions quickly."
-                    ),
-                    new ParentDashboardResponse.RecentActivitySummary(
-                            "act-2026-06-27",
-                            "2026-06-27",
-                            "Reading comprehension",
-                            "English",
-                            88,
-                            25,
-                            "Strong performance identifying the main idea and supporting details in short texts."
-                    )
-            );
-        };
+        }
     }
 }
