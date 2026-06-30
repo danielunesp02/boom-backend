@@ -20,14 +20,36 @@ class ParentDashboardControllerTest {
     private MockMvc mockMvc;
 
     @Test
-    void shouldReturnParentDashboardMockData() throws Exception {
+    void shouldReturnParentDashboardMockDataInEnglishByDefault() throws Exception {
         mockMvc.perform(get("/api/v1/parents/dashboard"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.student.displayName").value("Helena"))
                 .andExpect(jsonPath("$.weeklySummary.completedActivities").value(5))
                 .andExpect(jsonPath("$.activityHistory", hasSize(7)))
                 .andExpect(jsonPath("$.subjectPerformance[0].subjectName").value("Mathematics"))
+                .andExpect(jsonPath("$.learningGaps[0].topicName").value("Fractions"))
                 .andExpect(jsonPath("$.learningGaps[0].skillName").value("Equivalent fractions"))
                 .andExpect(jsonPath("$.currentActionPlan.title").value("Review equivalent fractions"));
+    }
+
+    @Test
+    void shouldReturnParentDashboardDomainContentInPortuguese() throws Exception {
+        mockMvc.perform(get("/api/v1/parents/dashboard")
+                        .header("X-Boom-Locale", "pt-BR"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.subjectPerformance[0].subjectName").value("Matemática"))
+                .andExpect(jsonPath("$.learningGaps[0].topicName").value("Frações"))
+                .andExpect(jsonPath("$.learningGaps[0].skillName").value("Frações equivalentes"))
+                .andExpect(jsonPath("$.currentActionPlan.title").value("Revisar frações equivalentes"));
+    }
+
+    @Test
+    void shouldResolveLocaleFromAcceptLanguageHeader() throws Exception {
+        mockMvc.perform(get("/api/v1/parents/dashboard")
+                        .header("Accept-Language", "it-IT,it;q=0.9,en;q=0.8"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.subjectPerformance[0].subjectName").value("Matematica"))
+                .andExpect(jsonPath("$.learningGaps[0].topicName").value("Frazioni"))
+                .andExpect(jsonPath("$.currentActionPlan.title").value("Ripassare le frazioni equivalenti"));
     }
 }
