@@ -17,3 +17,10 @@ logging:
   level:
     root: INFO
     com.boom: DEBUG
+
+boom:
+  auth:
+    cookie-name: BOOM_SESSION
+    session-ttl-minutes: 720
+    dev-mode: true
+    hash-pepper: local-dev-change-me
