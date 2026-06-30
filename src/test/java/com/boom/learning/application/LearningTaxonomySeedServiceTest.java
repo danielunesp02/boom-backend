@@ -1,0 +1,7 @@
+package com.boom.learning.application;
+import com.boom.learning.domain.*; import com.boom.learning.repository.*; import org.junit.jupiter.api.Test; import org.springframework.beans.factory.annotation.Autowired; import org.springframework.boot.test.context.SpringBootTest; import org.springframework.test.context.ActiveProfiles; import org.springframework.transaction.annotation.Transactional; import static org.assertj.core.api.Assertions.assertThat;
+@SpringBootTest @ActiveProfiles("local") @Transactional class LearningTaxonomySeedServiceTest {
+ @Autowired LearningTaxonomySeedService seedService; @Autowired LearningRepository learningRepository; @Autowired CurriculumRepository curriculumRepository;
+ @Test void shouldSeedLearningTaxonomyAndCurriculumFoundation(){var r=seedService.seed(); assertThat(r.subjects()).isEqualTo(4); assertThat(r.objectives()).isEqualTo(5); assertThat(r.expectations()).isEqualTo(10); assertThat(learningRepository.findActiveSubjects()).extracting(LearningSubject::code).contains("MATHEMATICS","ENGLISH","SCIENCE","LITERATURE"); assertThat(curriculumRepository.findActiveFrameworks()).extracting(CurriculumFramework::code).contains("ITALY_LOWER_SECONDARY","BRAZIL_BNCC");}
+ @Test void shouldBeIdempotent(){seedService.seed(); seedService.seed(); assertThat(learningRepository.findActiveSubjects()).extracting(LearningSubject::code).containsOnlyOnce("MATHEMATICS","ENGLISH","SCIENCE","LITERATURE");}
+}

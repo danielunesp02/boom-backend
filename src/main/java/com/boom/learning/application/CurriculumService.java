@@ -1,0 +1,3 @@
+package com.boom.learning.application;
+import com.boom.learning.domain.*; import com.boom.learning.repository.CurriculumRepository; import org.springframework.stereotype.Service; import java.util.*;
+@Service public class CurriculumService { private final CurriculumRepository repo; public CurriculumService(CurriculumRepository repo){this.repo=repo;} public List<CurriculumFramework> listFrameworks(){return repo.findActiveFrameworks();} public List<CurriculumBand> listBands(UUID frameworkId){return repo.findActiveBandsByFramework(frameworkId);} public List<CurriculumExpectation> listExpectations(UUID bandId){return repo.findActiveExpectationsByBand(bandId);} }

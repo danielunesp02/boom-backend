@@ -40,7 +40,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1/auth/me",
                                 "/api/v1/parents/**",
-                                "/api/v1/dev/**"
+                                "/api/v1/dev/**",
+                                "/api/v1/learning/**"
                         ).authenticated()
                         .anyRequest().authenticated()
                 )

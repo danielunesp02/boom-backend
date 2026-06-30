@@ -1,0 +1,3 @@
+package com.boom.learning.application;
+import com.boom.learning.domain.*; import com.boom.learning.repository.LearningRepository; import org.springframework.stereotype.Service; import java.util.*;
+@Service public class LearningCatalogService { private final LearningRepository repo; public LearningCatalogService(LearningRepository repo){this.repo=repo;} public List<LearningSubject> listSubjects(){return repo.findActiveSubjects();} public List<LearningTopic> listTopics(UUID subjectId){return repo.findActiveTopicsBySubject(subjectId);} public List<LearningSkill> listSkills(UUID topicId){return repo.findActiveSkillsByTopic(topicId);} public List<LearningObjective> listObjectives(UUID skillId){return repo.findActiveObjectivesBySkill(skillId);} }
