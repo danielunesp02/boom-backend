@@ -1,0 +1,294 @@
+openapi: 3.0.3
+info:
+  title: Boom Learning API Draft
+  version: 0.1.0
+  description: Draft OpenAPI contract for LEARN-002, LEARN-003, and LEARN-004.
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: Learning Activities
+  - name: Assessment Attempts
+  - name: Dev Seeds
+
+paths:
+  /api/v1/learning/activities:
+    get:
+      tags: [Learning Activities]
+      summary: List learning activities
+      operationId: listLearningActivities
+      parameters:
+        - name: subjectId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: topicId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: skillId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: objectiveId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Learning activities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LearningActivitySummary"
+
+  /api/v1/learning/activities/{activityId}:
+    get:
+      tags: [Learning Activities]
+      summary: Get learning activity detail
+      operationId: getLearningActivity
+      parameters:
+        - name: activityId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Learning activity detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LearningActivityDetail"
+        "404":
+          description: Activity not found
+
+  /api/v1/students/{studentId}/activities/{activityId}/attempts:
+    post:
+      tags: [Assessment Attempts]
+      summary: Start an assessment attempt
+      operationId: startAssessmentAttempt
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: activityId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartAttemptRequest"
+      responses:
+        "201":
+          description: Attempt started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssessmentAttemptResponse"
+        "403":
+          description: Guardian does not have access to the student
+        "404":
+          description: Student or activity not found
+
+  /api/v1/attempts/{attemptId}/answers:
+    post:
+      tags: [Assessment Attempts]
+      summary: Submit an answer
+      operationId: submitAnswer
+      parameters:
+        - name: attemptId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitAnswerRequest"
+      responses:
+        "201":
+          description: Answer submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnswerSubmissionResponse"
+        "400":
+          description: Invalid answer
+        "403":
+          description: Guardian does not have access to the attempt
+        "404":
+          description: Attempt or question not found
+
+  /api/v1/attempts/{attemptId}/complete:
+    post:
+      tags: [Assessment Attempts]
+      summary: Complete an assessment attempt
+      operationId: completeAttempt
+      parameters:
+        - name: attemptId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Attempt completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssessmentAttemptResponse"
+
+  /api/v1/attempts/{attemptId}:
+    get:
+      tags: [Assessment Attempts]
+      summary: Get assessment attempt state
+      operationId: getAttempt
+      parameters:
+        - name: attemptId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Attempt state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssessmentAttemptResponse"
+
+  /api/v1/dev/seed/learning-activities:
+    post:
+      tags: [Dev Seeds]
+      summary: Seed local learning activities
+      operationId: seedLearningActivities
+      responses:
+        "200":
+          description: Seed result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LearningActivitiesSeedResponse"
+
+components:
+  schemas:
+    LearningActivitySummary:
+      type: object
+      required: [activityId, title, subjectId, topicId, skillId, objectiveId, status]
+      properties:
+        activityId: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: string }
+        subjectId: { type: string, format: uuid }
+        topicId: { type: string, format: uuid }
+        skillId: { type: string, format: uuid }
+        objectiveId: { type: string, format: uuid }
+        estimatedDurationMinutes: { type: integer }
+        complexityLevel:
+          type: string
+          enum: [RECALL, UNDERSTAND, APPLY, ANALYZE, EVALUATE, CREATE]
+        depthLevel:
+          type: string
+          enum: [FOUNDATIONAL, STANDARD, DEEP, OLYMPIAD_OR_ADVANCED]
+        status:
+          type: string
+          enum: [ACTIVE, ARCHIVED]
+
+    LearningActivityDetail:
+      allOf:
+        - $ref: "#/components/schemas/LearningActivitySummary"
+        - type: object
+          required: [questions]
+          properties:
+            questions:
+              type: array
+              items:
+                $ref: "#/components/schemas/ActivityQuestion"
+
+    ActivityQuestion:
+      type: object
+      required: [questionId, activityId, prompt, questionType, options]
+      properties:
+        questionId: { type: string, format: uuid }
+        activityId: { type: string, format: uuid }
+        prompt: { type: string }
+        explanation: { type: string }
+        questionType:
+          type: string
+          enum: [MULTIPLE_CHOICE, TRUE_FALSE, SHORT_TEXT]
+        complexityLevel: { type: string }
+        depthLevel: { type: string }
+        options:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuestionOption"
+
+    QuestionOption:
+      type: object
+      required: [optionId, label, text]
+      properties:
+        optionId: { type: string, format: uuid }
+        label: { type: string, example: A }
+        text: { type: string }
+
+    StartAttemptRequest:
+      type: object
+      properties:
+        sourceChannel:
+          type: string
+          enum: [WEB, MOBILE, TV, API]
+          default: WEB
+        locale:
+          type: string
+          example: en-US
+
+    SubmitAnswerRequest:
+      type: object
+      required: [questionId]
+      properties:
+        questionId: { type: string, format: uuid }
+        selectedOptionId: { type: string, format: uuid }
+        textAnswer: { type: string }
+        timeSpentSeconds: { type: integer }
+        clientEventTime: { type: string, format: date-time }
+
+    AssessmentAttemptResponse:
+      type: object
+      required: [attemptId, studentId, activityId, status, answers]
+      properties:
+        attemptId: { type: string, format: uuid }
+        studentId: { type: string, format: uuid }
+        activityId: { type: string, format: uuid }
+        status:
+          type: string
+          enum: [IN_PROGRESS, COMPLETED, ABANDONED]
+        startedAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time }
+        score: { type: number, format: double }
+        accuracy: { type: number, format: double }
+        answers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnswerSubmissionResponse"
+
+    AnswerSubmissionResponse:
+      type: object
+      required: [answerSubmissionId, attemptId, questionId, correct]
+      properties:
+        answerSubmissionId: { type: string, format: uuid }
+        attemptId: { type: string, format: uuid }
+        questionId: { type: string, format: uuid }
+        selectedOptionId: { type: string, format: uuid }
+        correct: { type: boolean }
+        score: { type: number, format: double }
+        explanation: { type: string }
+
+    LearningActivitiesSeedResponse:
+      type: object
+      properties:
+        activities: { type: integer }
+        questions: { type: integer }
+        options: { type: integer }
