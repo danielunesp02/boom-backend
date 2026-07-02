@@ -1,0 +1,49 @@
+package com.boom.student.learningevent.domain;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.UUID;
+
+public record StudentLearningEvent(
+        UUID id,
+        UUID studentId,
+        UUID guardianId,
+        UUID assessmentAttemptId,
+        UUID answerSubmissionId,
+        UUID subjectId,
+        UUID topicId,
+        UUID skillId,
+        UUID learningObjectiveId,
+        UUID activityId,
+        UUID questionId,
+        UUID curriculumFrameworkId,
+        UUID curriculumBandId,
+        UUID curriculumExpectationId,
+        StudentLearningEventType eventType,
+        Instant eventTime,
+        LocalDate eventDate,
+        int eventYear,
+        int eventMonth,
+        int eventDay,
+        int eventWeek,
+        Instant clientEventTime,
+        Instant serverReceivedAt,
+        String countryCode,
+        String gradeLevel,
+        String targetSchoolSystem,
+        Integer ageAtEventMonths,
+        String knowledgeLevelBefore,
+        String knowledgeLevelAfter,
+        String complexityLevel,
+        String depthLevel,
+        Boolean correct,
+        BigDecimal score,
+        Integer timeSpentSeconds,
+        Integer attemptNumber,
+        String sourceChannel,
+        String locale,
+        String metadataJson,
+        Instant createdAt
+) {
+}

@@ -1,11 +1,15 @@
 package com.boom.student.attempt.application;
 
+import com.boom.student.snapshot.application.StudentSkillDailySnapshotService;
 import com.boom.student.attempt.api.dto.*;
 import com.boom.student.attempt.domain.AnswerSubmission;
 import com.boom.student.attempt.domain.AssessmentAttempt;
 import com.boom.student.attempt.domain.AssessmentAttemptStatus;
 import com.boom.student.attempt.domain.SourceChannel;
 import com.boom.student.attempt.repository.AssessmentAttemptRepository;
+import com.boom.student.learningevent.application.StudentLearningEventCommand;
+import com.boom.student.learningevent.application.StudentLearningEventService;
+import com.boom.student.learningevent.domain.StudentLearningEventType;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.core.Authentication;
@@ -23,15 +27,20 @@ public class AssessmentAttemptService {
     private final JdbcClient jdbcClient;
     private final AssessmentAttemptRepository repository;
     private final MockAnswerFeedbackService feedbackService;
-
+    private final StudentLearningEventService learningEventService;
+    private final StudentSkillDailySnapshotService snapshotService;
     public AssessmentAttemptService(
             JdbcClient jdbcClient,
             AssessmentAttemptRepository repository,
-            MockAnswerFeedbackService feedbackService
+            MockAnswerFeedbackService feedbackService,
+            StudentLearningEventService learningEventService,
+            StudentSkillDailySnapshotService snapshotService
     ) {
         this.jdbcClient = jdbcClient;
         this.repository = repository;
         this.feedbackService = feedbackService;
+        this.learningEventService = learningEventService;
+        this.snapshotService = snapshotService;
     }
 
     public AssessmentAttemptResponse startAttempt(
@@ -61,6 +70,24 @@ public class AssessmentAttemptService {
                 locale,
                 totalQuestions
         );
+
+        learningEventService.append(new StudentLearningEventCommand(
+                studentId,
+                guardianId,
+                attempt.id(),
+                null,
+                activityId,
+                null,
+                StudentLearningEventType.ACTIVITY_STARTED,
+                null,
+                null,
+                BigDecimal.ZERO,
+                null,
+                null,
+                sourceChannel.name(),
+                locale,
+                "{\"source\":\"assessment_attempt_started\"}"
+        ));
 
         return toAttemptResponse(attempt);
     }
@@ -103,6 +130,24 @@ public class AssessmentAttemptService {
 
         repository.refreshAttemptAggregates(attemptId, false);
 
+        learningEventService.append(new StudentLearningEventCommand(
+                attempt.studentId(),
+                guardianId,
+                attempt.id(),
+                answer.id(),
+                attempt.activityId(),
+                questionId,
+                StudentLearningEventType.QUESTION_ANSWERED,
+                null,
+                validation.correct(),
+                validation.correct() ? BigDecimal.ONE : BigDecimal.ZERO,
+                request.timeSpentSeconds(),
+                null,
+                attempt.sourceChannel().name(),
+                attempt.locale(),
+                "{\"source\":\"answer_submitted\"}"
+        ));
+
         return toAnswerResponse(answer, feedbackService.feedback(validation.correct(), validation.explanation()));
     }
 
@@ -117,8 +162,28 @@ public class AssessmentAttemptService {
         }
 
         repository.refreshAttemptAggregates(attemptId, true);
+        AssessmentAttempt completed = loadAttempt(attemptId);
 
-        return toAttemptResponse(loadAttempt(attemptId));
+        learningEventService.append(new StudentLearningEventCommand(
+                completed.studentId(),
+                guardianId,
+                completed.id(),
+                null,
+                completed.activityId(),
+                null,
+                StudentLearningEventType.ACTIVITY_COMPLETED,
+                null,
+                null,
+                completed.score(),
+                null,
+                null,
+                completed.sourceChannel().name(),
+                completed.locale(),
+                "{\"source\":\"assessment_attempt_completed\"}"
+        ));
+        snapshotService.rebuildDailySnapshots(null);
+
+        return toAttemptResponse(completed);
     }
 
     public AssessmentAttemptResponse getAttempt(String attemptIdValue, Authentication authentication) {

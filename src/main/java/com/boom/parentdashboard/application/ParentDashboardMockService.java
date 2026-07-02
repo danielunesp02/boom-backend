@@ -2,6 +2,8 @@ package com.boom.parentdashboard.application;
 
 import com.boom.parentdashboard.api.dto.ParentDashboardResponse;
 import com.boom.parentdashboard.api.dto.TrendDirection;
+import com.boom.parentdashboard.realdata.ParentDashboardRealDataAdapter;
+import com.boom.parentdashboard.realdata.ParentDashboardRealMetrics;
 import com.boom.student.domain.GradeLevel;
 import com.boom.student.domain.Student;
 import com.boom.student.domain.TargetSchoolSystem;
@@ -9,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -16,9 +19,21 @@ import java.util.UUID;
 @Service
 public class ParentDashboardMockService {
 
+    private final ParentDashboardRealDataAdapter realDataAdapter;
+
+    public ParentDashboardMockService(ParentDashboardRealDataAdapter realDataAdapter) {
+        this.realDataAdapter = realDataAdapter;
+    }
+
     public ParentDashboardResponse getDashboard(String requestedLocale, DashboardPeriod period, Student student) {
         Labels labels = labels(requestedLocale);
-        CurrentMetrics current = currentMetrics(period);
+        CurrentMetrics mockCurrent = currentMetrics(period);
+        ParentDashboardRealMetrics realMetrics = realDataAdapter.loadForStudent(student.id(), periodDays(period));
+
+        CurrentMetrics current = realMetrics.hasRealData()
+                ? currentMetricsFromReal(realMetrics, mockCurrent.activeGaps())
+                : mockCurrent;
+
         CurrentMetrics previous = previousMetrics(period, current);
 
         return new ParentDashboardResponse(
@@ -27,7 +42,7 @@ public class ParentDashboardMockService {
                 selectedPeriod(period, labels),
                 metrics(current, previous, labels),
                 activityHistory(period),
-                subjectPerformance(labels),
+                realMetrics.hasRealData() ? subjectPerformance(realMetrics) : subjectPerformance(labels),
                 learningGaps(labels),
                 currentActionPlan(labels),
                 recentActivitySummaries(period, labels),
@@ -156,6 +171,39 @@ public class ParentDashboardMockService {
                 new ParentDashboardResponse.ActivityHistoryItem(end.minusDays(1), 1, 81, 30),
                 new ParentDashboardResponse.ActivityHistoryItem(end, 0, null, 0)
         );
+    }
+
+    private CurrentMetrics currentMetricsFromReal(ParentDashboardRealMetrics realMetrics, int fallbackActiveGaps) {
+        return new CurrentMetrics(
+                realMetrics.completedActivities(),
+                secondsToMinutes(realMetrics.totalTimeSpentSeconds()),
+                (int) Math.round(realMetrics.accuracy()),
+                fallbackActiveGaps
+        );
+    }
+
+    private int periodDays(DashboardPeriod period) {
+        return (int) ChronoUnit.DAYS.between(period.startDate(), period.endDate()) + 1;
+    }
+
+    private int secondsToMinutes(int seconds) {
+        if (seconds <= 0) {
+            return 0;
+        }
+        return Math.max(1, (int) Math.ceil(seconds / 60.0));
+    }
+
+    private List<ParentDashboardResponse.SubjectPerformance> subjectPerformance(ParentDashboardRealMetrics realMetrics) {
+        return realMetrics.subjectMetrics().stream()
+                .map(subject -> new ParentDashboardResponse.SubjectPerformance(
+                        subject.subjectId().toString(),
+                        subject.subjectName(),
+                        (int) Math.round(subject.accuracy()),
+                        secondsToMinutes(subject.totalTimeSpentSeconds()),
+                        "REAL_DATA",
+                        0
+                ))
+                .toList();
     }
 
     private List<ParentDashboardResponse.SubjectPerformance> subjectPerformance(Labels labels) {

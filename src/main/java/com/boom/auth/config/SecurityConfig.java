@@ -41,6 +41,8 @@ public class SecurityConfig {
                                 "/api/v1/auth/me",
                                 "/api/v1/parents/**",
                                 "/api/v1/learning/**",
+                                "/api/v1/students/**",
+                                "/api/v1/attempts/**",
                                 "/api/v1/dev/**"
                         ).authenticated()
                         .anyRequest().authenticated()
