@@ -41,7 +41,7 @@ public class ParentDashboardMockService {
                 weeklySummary(current),
                 selectedPeriod(period, labels),
                 metrics(current, previous, labels),
-                activityHistory(period),
+                realMetrics.hasRealData() ? activityHistory(realMetrics) : activityHistory(period),
                 realMetrics.hasRealData() ? subjectPerformance(realMetrics) : subjectPerformance(labels),
                 learningGaps(labels),
                 currentActionPlan(labels),
@@ -171,6 +171,18 @@ public class ParentDashboardMockService {
                 new ParentDashboardResponse.ActivityHistoryItem(end.minusDays(1), 1, 81, 30),
                 new ParentDashboardResponse.ActivityHistoryItem(end, 0, null, 0)
         );
+    }
+
+
+    private List<ParentDashboardResponse.ActivityHistoryItem> activityHistory(ParentDashboardRealMetrics realMetrics) {
+        return realMetrics.dailyActivityMetrics().stream()
+                .map(day -> new ParentDashboardResponse.ActivityHistoryItem(
+                        LocalDate.parse(day.snapshotDate()),
+                        day.completedActivities(),
+                        day.accuracy(),
+                        secondsToMinutes(day.totalTimeSpentSeconds())
+                ))
+                .toList();
     }
 
     private CurrentMetrics currentMetricsFromReal(ParentDashboardRealMetrics realMetrics, int fallbackActiveGaps) {

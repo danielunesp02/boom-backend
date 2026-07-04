@@ -37,6 +37,7 @@ public class ParentDashboardRealDataAdapter {
                     0,
                     0,
                     List.of(),
+                    List.of(),
                     List.of()
             );
         }
@@ -52,6 +53,7 @@ public class ParentDashboardRealDataAdapter {
                 summary.accuracy(),
                 summary.totalTimeSpentSeconds(),
                 summary.completedActivities(),
+                loadDailyActivityHistory(studentId, dateFrom, dateTo),
                 loadSubjectMetrics(studentId, dateFrom, dateTo),
                 loadSkillMetrics(studentId, dateFrom, dateTo)
         );
@@ -90,6 +92,46 @@ public class ParentDashboardRealDataAdapter {
                 .single();
     }
 
+
+    private List<ParentDashboardRealMetrics.DailyActivityMetric> loadDailyActivityHistory(
+            UUID studentId,
+            LocalDate dateFrom,
+            LocalDate dateTo
+    ) {
+        return jdbcClient.sql("""
+                        SELECT
+                            snapshot_date,
+                            COALESCE(SUM(activities_completed), 0)::integer AS completed_activities,
+                            COALESCE(SUM(questions_answered), 0)::integer AS questions_answered,
+                            COALESCE(SUM(correct_answers), 0)::integer AS correct_answers,
+                            CASE
+                                WHEN COALESCE(SUM(questions_answered), 0) = 0 THEN NULL
+                                ELSE ROUND(
+                                    (
+                                        COALESCE(SUM(correct_answers), 0)::numeric
+                                        / COALESCE(SUM(questions_answered), 0)::numeric
+                                    ) * 100
+                                )::integer
+                            END AS accuracy,
+                            COALESCE(SUM(total_time_spent_seconds), 0)::integer AS total_time_spent_seconds
+                        FROM student_skill_daily_snapshots
+                        WHERE student_id = :studentId
+                          AND snapshot_date BETWEEN :dateFrom AND :dateTo
+                        GROUP BY snapshot_date
+                        ORDER BY snapshot_date
+                        """)
+                .param("studentId", studentId)
+                .param("dateFrom", dateFrom)
+                .param("dateTo", dateTo)
+                .query((rs, rowNum) -> new ParentDashboardRealMetrics.DailyActivityMetric(
+                        rs.getObject("snapshot_date", LocalDate.class).toString(),
+                        rs.getInt("completed_activities"),
+                        rs.getObject("accuracy", Integer.class),
+                        rs.getInt("total_time_spent_seconds")
+                ))
+                .list();
+    }
+
     private List<ParentDashboardRealMetrics.SubjectMetric> loadSubjectMetrics(
             UUID studentId,
             LocalDate dateFrom,
@@ -114,7 +156,7 @@ public class ParentDashboardRealDataAdapter {
                         JOIN learning_subjects ls ON ls.id = ssds.subject_id
                         WHERE ssds.student_id = :studentId
                           AND ssds.snapshot_date BETWEEN :dateFrom AND :dateTo
-                        GROUP BY ssds.subject_id, ls.default_name, ls.default_name
+                        GROUP BY ssds.subject_id, ls.default_name
                         ORDER BY subject_name
                         """)
                 .param("studentId", studentId)

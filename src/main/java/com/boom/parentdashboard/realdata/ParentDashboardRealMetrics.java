@@ -14,11 +14,21 @@ public record ParentDashboardRealMetrics(
         double accuracy,
         int totalTimeSpentSeconds,
         int completedActivities,
-        List<SubjectMetric> subjectMetrics,
-        List<SkillMetric> skillMetrics
+        List<ParentDashboardRealMetrics.DailyActivityMetric> dailyActivityMetrics,
+        List<ParentDashboardRealMetrics.SubjectMetric> subjectMetrics,
+        List<ParentDashboardRealMetrics.SkillMetric> skillMetrics
 ) {
+
     public boolean hasRealData() {
         return status == ParentDashboardRealDataStatus.REAL_DATA_AVAILABLE;
+    }
+
+    public record DailyActivityMetric(
+            String snapshotDate,
+            int completedActivities,
+            Integer accuracy,
+            int totalTimeSpentSeconds
+    ) {
     }
 
     public record SubjectMetric(
