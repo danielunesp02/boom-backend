@@ -1,19 +1,20 @@
-
-;
-
-# Java / Maven build output
+# Build output
 target/
-*.class
-*.jar
-*.war
-*.ear
 
-# Environment
-.env
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Logs
 *.log
 
-# OS / IDE
-.DS_Store
-.idea/
-*.iml
-.vscode/
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Local scratch
+from
+order
+*.local
