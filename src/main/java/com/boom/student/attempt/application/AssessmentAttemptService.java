@@ -1,5 +1,5 @@
 package com.boom.student.attempt.application;
-
+import com.boom.pedagogy.application.PedagogicalMasteryUpdateService;
 import com.boom.student.snapshot.application.StudentSkillDailySnapshotService;
 import com.boom.student.attempt.api.dto.*;
 import com.boom.student.attempt.domain.AnswerSubmission;
@@ -29,18 +29,23 @@ public class AssessmentAttemptService {
     private final MockAnswerFeedbackService feedbackService;
     private final StudentLearningEventService learningEventService;
     private final StudentSkillDailySnapshotService snapshotService;
+    private final PedagogicalMasteryUpdateService pedagogicalMasteryUpdateService;
+
     public AssessmentAttemptService(
             JdbcClient jdbcClient,
             AssessmentAttemptRepository repository,
             MockAnswerFeedbackService feedbackService,
             StudentLearningEventService learningEventService,
-            StudentSkillDailySnapshotService snapshotService
+            StudentSkillDailySnapshotService snapshotService,
+            PedagogicalMasteryUpdateService pedagogicalMasteryUpdateService
     ) {
         this.jdbcClient = jdbcClient;
         this.repository = repository;
         this.feedbackService = feedbackService;
         this.learningEventService = learningEventService;
         this.snapshotService = snapshotService;
+        this.pedagogicalMasteryUpdateService = pedagogicalMasteryUpdateService;
+
     }
 
     public AssessmentAttemptResponse startAttempt(
@@ -182,6 +187,7 @@ public class AssessmentAttemptService {
                 "{\"source\":\"assessment_attempt_completed\"}"
         ));
         snapshotService.rebuildDailySnapshots(null);
+        pedagogicalMasteryUpdateService.updateAfterAttemptCompleted(completed);
 
         return toAttemptResponse(completed);
     }

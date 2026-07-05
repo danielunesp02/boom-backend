@@ -39,6 +39,7 @@ public class ParentDashboardRealDataAdapter {
                     List.of(),
                     List.of(),
                     List.of(),
+                    List.of(),
                     List.of()
             );
         }
@@ -56,6 +57,7 @@ public class ParentDashboardRealDataAdapter {
                 summary.completedActivities(),
                 loadDailyActivityHistory(studentId, dateFrom, dateTo),
                 loadRecentActivities(studentId, dateFrom, dateTo),
+                loadLearningGaps(studentId),
                 loadSubjectMetrics(studentId, dateFrom, dateTo),
                 loadSkillMetrics(studentId, dateFrom, dateTo)
         );
@@ -190,6 +192,97 @@ public class ParentDashboardRealDataAdapter {
                 ))
                 .list();
     }
+
+private List<ParentDashboardRealMetrics.LearningGapMetric> loadLearningGaps(UUID studentId) {
+    return jdbcClient.sql("""
+                    SELECT
+                        ssms.subject_id,
+                        ls.default_name AS subject_name,
+                        ssms.topic_id,
+                        lt.default_name AS topic_name,
+                        ssms.skill_id,
+                        lsk.default_name AS skill_name,
+                        ssms.mastery_status,
+                        ROUND(COALESCE(ssms.accuracy, 0))::integer AS accuracy,
+                        ROUND(COALESCE(ssms.mastery_score, 0))::integer AS mastery_score,
+                        COALESCE(srq.priority, CASE
+                            WHEN ssms.requires_reassessment THEN 'HIGH'
+                            WHEN ssms.accuracy < 60 THEN 'HIGH'
+                            WHEN ssms.accuracy < 75 THEN 'MEDIUM'
+                            ELSE 'LOW'
+                        END) AS priority,
+                        COALESCE(srq.review_type, CASE
+                            WHEN ssms.requires_reassessment THEN 'QUICK_DIAGNOSTIC'
+                            WHEN ssms.accuracy < 60 THEN 'WORKED_EXAMPLE'
+                            WHEN ssms.accuracy < 75 THEN 'GUIDED_PRACTICE'
+                            ELSE 'RETRIEVAL_QUIZ'
+                        END) AS review_type,
+                        COALESCE(srq.status, 'SCHEDULED') AS review_status,
+                        COALESCE(srq.reason, CASE
+                            WHEN ssms.requires_reassessment THEN 'REASSESSMENT_REQUIRED'
+                            WHEN ssms.accuracy < 75 THEN 'LOW_ACCURACY'
+                            ELSE 'REVIEW_SCHEDULED'
+                        END) AS reason,
+                        COALESCE(srq.scheduled_for, ssms.next_review_at::date) AS next_review_date,
+                        COALESCE(srq.requires_reassessment, ssms.requires_reassessment, FALSE) AS requires_reassessment,
+                        COALESCE(srq.overdue_days, 0)::integer AS overdue_days
+                    FROM student_skill_mastery_state ssms
+                    JOIN learning_subjects ls ON ls.id = ssms.subject_id
+                    JOIN learning_topics lt ON lt.id = ssms.topic_id
+                    JOIN learning_skills lsk ON lsk.id = ssms.skill_id
+                    LEFT JOIN LATERAL (
+                        SELECT priority, review_type, status, reason, scheduled_for, requires_reassessment, overdue_days
+                        FROM student_review_queue q
+                        WHERE q.student_id = ssms.student_id
+                          AND q.skill_id = ssms.skill_id
+                          AND q.status IN ('SCHEDULED', 'DUE', 'OVERDUE', 'CRITICAL_OVERDUE')
+                        ORDER BY
+                            CASE q.status
+                                WHEN 'CRITICAL_OVERDUE' THEN 1
+                                WHEN 'OVERDUE' THEN 2
+                                WHEN 'DUE' THEN 3
+                                ELSE 4
+                            END,
+                            q.scheduled_for ASC,
+                            q.created_at DESC
+                        LIMIT 1
+                    ) srq ON TRUE
+                    WHERE ssms.student_id = :studentId
+                      AND ssms.mastery_status IN ('ACTIVE_GAP', 'REASSESSMENT_REQUIRED', 'REGRESSED', 'LEARNING', 'REVIEW_SCHEDULED')
+                    ORDER BY
+                        CASE
+                            WHEN COALESCE(srq.priority, '') = 'CRITICAL' THEN 1
+                            WHEN COALESCE(srq.priority, '') = 'HIGH' THEN 2
+                            WHEN COALESCE(srq.priority, '') = 'MEDIUM' THEN 3
+                            ELSE 4
+                        END,
+                        COALESCE(srq.scheduled_for, ssms.next_review_at::date) ASC NULLS LAST,
+                        ssms.accuracy ASC,
+                        ssms.updated_at DESC
+                    LIMIT 5
+                    """)
+            .param("studentId", studentId)
+            .query((rs, rowNum) -> new ParentDashboardRealMetrics.LearningGapMetric(
+                    rs.getObject("subject_id", UUID.class),
+                    rs.getString("subject_name"),
+                    rs.getObject("topic_id", UUID.class),
+                    rs.getString("topic_name"),
+                    rs.getObject("skill_id", UUID.class),
+                    rs.getString("skill_name"),
+                    rs.getString("mastery_status"),
+                    rs.getInt("accuracy"),
+                    rs.getInt("mastery_score"),
+                    rs.getString("priority"),
+                    rs.getString("review_type"),
+                    rs.getString("review_status"),
+                    rs.getString("reason"),
+                    rs.getObject("next_review_date") == null ? null : rs.getObject("next_review_date", java.time.LocalDate.class).toString(),
+                    rs.getBoolean("requires_reassessment"),
+                    rs.getInt("overdue_days")
+            ))
+            .list();
+}
+
 
     private List<ParentDashboardRealMetrics.SubjectMetric> loadSubjectMetrics(
             UUID studentId,

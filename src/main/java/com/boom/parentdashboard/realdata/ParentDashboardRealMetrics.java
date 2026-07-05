@@ -16,6 +16,7 @@ public record ParentDashboardRealMetrics(
         int completedActivities,
         List<ParentDashboardRealMetrics.DailyActivityMetric> dailyActivityMetrics,
         List<ParentDashboardRealMetrics.RecentActivityMetric> recentActivityMetrics,
+        List<ParentDashboardRealMetrics.LearningGapMetric> learningGapMetrics,
         List<ParentDashboardRealMetrics.SubjectMetric> subjectMetrics,
         List<ParentDashboardRealMetrics.SkillMetric> skillMetrics
 ) {
@@ -24,12 +25,7 @@ public record ParentDashboardRealMetrics(
         return status == ParentDashboardRealDataStatus.REAL_DATA_AVAILABLE;
     }
 
-    public record DailyActivityMetric(
-            String snapshotDate,
-            int completedActivities,
-            Integer accuracy,
-            int totalTimeSpentSeconds
-    ) {
+    public record DailyActivityMetric(String snapshotDate, int completedActivities, Integer accuracy, int totalTimeSpentSeconds) {
     }
 
     public record RecentActivityMetric(
@@ -41,6 +37,26 @@ public record ParentDashboardRealMetrics(
             int durationSeconds,
             int correctAnswers,
             int answeredQuestions
+    ) {
+    }
+
+    public record LearningGapMetric(
+            UUID subjectId,
+            String subjectName,
+            UUID topicId,
+            String topicName,
+            UUID skillId,
+            String skillName,
+            String masteryStatus,
+            int accuracy,
+            int masteryScore,
+            String priority,
+            String reviewType,
+            String reviewStatus,
+            String reason,
+            String nextReviewDate,
+            boolean requiresReassessment,
+            int overdueDays
     ) {
     }
 

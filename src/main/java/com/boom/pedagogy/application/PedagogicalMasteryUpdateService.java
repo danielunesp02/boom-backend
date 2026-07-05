@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
-
+import java.time.LocalDateTime;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -266,11 +266,11 @@ public class PedagogicalMasteryUpdateService {
                 .param("failedReviews", decision.failedReviews())
                 .param("reviewStepIndex", decision.reviewStepIndex())
                 .param("reviewIntervalDays", decision.reviewIntervalDays())
-                .param("lastPracticedAt", lastPracticedAt)
-                .param("nextReviewAt", decision.nextReviewDate() == null ? null : decision.nextReviewDate().atStartOfDay().toInstant(ZoneOffset.UTC))
+                .param("lastPracticedAt", dbTime(lastPracticedAt))
+                .param("nextReviewAt", decision.nextReviewDate() == null ? null : decision.nextReviewDate().atStartOfDay())
                 .param("requiresReassessment", decision.requiresReassessment())
                 .param("confidenceScore", calculateConfidenceScore(accuracy, questionsAnswered, decision))
-                .param("now", now)
+                .param("now", dbTime(now))
                 .update();
     }
 
@@ -283,7 +283,7 @@ public class PedagogicalMasteryUpdateService {
                         """)
                 .param("studentId", studentId)
                 .param("skillId", skillId)
-                .param("now", now)
+                .param("now", dbTime(now))
                 .update();
     }
 
@@ -313,7 +313,7 @@ public class PedagogicalMasteryUpdateService {
                 .param("reviewType", decision.reviewType())
                 .param("methodologyCode", strategy.methodologyCode())
                 .param("requiresReassessment", decision.requiresReassessment())
-                .param("now", now)
+                .param("now", dbTime(now))
                 .update();
         return id;
     }
@@ -353,9 +353,14 @@ public class PedagogicalMasteryUpdateService {
                 .param("triggerReason", decision.reason())
                 .param("inputSnapshotJson", inputSnapshotJson)
                 .param("recommendationJson", recommendationJson)
-                .param("now", now)
+                .param("now", dbTime(now))
                 .update();
         return id;
+    }
+
+
+    private LocalDateTime dbTime(Instant instant) {
+        return instant == null ? null : LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
     }
 
     private BigDecimal calculateConfidenceScore(int accuracy, int questionsAnswered, MasteryDecision decision) {
