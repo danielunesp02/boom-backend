@@ -1,0 +1,13 @@
+package com.boom.pedagogy.domain;
+
+public enum InterventionType {
+    REVIEW_RECOMMENDATION,
+    CONCEPT_RETEACH,
+    GUIDED_PRACTICE,
+    RETRIEVAL_QUIZ,
+    INTERLEAVED_PRACTICE,
+    MASTERY_CHECK,
+    QUICK_DIAGNOSTIC,
+    REENTRY_ASSESSMENT,
+    AI_REAPPROACH
+}

@@ -1,0 +1,13 @@
+package com.boom.pedagogy.domain;
+
+public enum ReviewType {
+    CONCEPT_RETEACH,
+    WORKED_EXAMPLE,
+    GUIDED_PRACTICE,
+    RETRIEVAL_QUIZ,
+    INTERLEAVED_PRACTICE,
+    CORRELATED_TOPIC,
+    MASTERY_CHECK,
+    QUICK_DIAGNOSTIC,
+    REENTRY_ASSESSMENT
+}
