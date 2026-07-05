@@ -38,6 +38,7 @@ public class ParentDashboardRealDataAdapter {
                     0,
                     List.of(),
                     List.of(),
+                    List.of(),
                     List.of()
             );
         }
@@ -54,6 +55,7 @@ public class ParentDashboardRealDataAdapter {
                 summary.totalTimeSpentSeconds(),
                 summary.completedActivities(),
                 loadDailyActivityHistory(studentId, dateFrom, dateTo),
+                loadRecentActivities(studentId, dateFrom, dateTo),
                 loadSubjectMetrics(studentId, dateFrom, dateTo),
                 loadSkillMetrics(studentId, dateFrom, dateTo)
         );
@@ -128,6 +130,63 @@ public class ParentDashboardRealDataAdapter {
                         rs.getInt("completed_activities"),
                         rs.getObject("accuracy", Integer.class),
                         rs.getInt("total_time_spent_seconds")
+                ))
+                .list();
+    }
+
+
+    private List<ParentDashboardRealMetrics.RecentActivityMetric> loadRecentActivities(
+            UUID studentId,
+            LocalDate dateFrom,
+            LocalDate dateTo
+    ) {
+        return jdbcClient.sql("""
+                        SELECT
+                            aa.activity_id,
+                            aa.completed_at::date AS completed_date,
+                            la.title AS activity_title,
+                            ls.default_name AS subject_name,
+                            ROUND(COALESCE(aa.accuracy, 0))::integer AS accuracy,
+                            COALESCE(
+                                SUM(ans.time_spent_seconds),
+                                la.estimated_duration_minutes * 60,
+                                0
+                            )::integer AS duration_seconds,
+                            COALESCE(aa.correct_answers, 0)::integer AS correct_answers,
+                            COALESCE(aa.answered_questions, 0)::integer AS answered_questions
+                        FROM assessment_attempts aa
+                        JOIN learning_activities la ON la.id = aa.activity_id
+                        JOIN learning_subjects ls ON ls.id = la.subject_id
+                        LEFT JOIN answer_submissions ans ON ans.attempt_id = aa.id
+                        WHERE aa.student_id = :studentId
+                          AND aa.status = 'COMPLETED'
+                          AND aa.completed_at IS NOT NULL
+                          AND aa.completed_at::date BETWEEN :dateFrom AND :dateTo
+                        GROUP BY
+                            aa.id,
+                            aa.activity_id,
+                            aa.completed_at,
+                            aa.accuracy,
+                            aa.correct_answers,
+                            aa.answered_questions,
+                            la.title,
+                            la.estimated_duration_minutes,
+                            ls.default_name
+                        ORDER BY aa.completed_at DESC
+                        LIMIT 5
+                        """)
+                .param("studentId", studentId)
+                .param("dateFrom", dateFrom)
+                .param("dateTo", dateTo)
+                .query((rs, rowNum) -> new ParentDashboardRealMetrics.RecentActivityMetric(
+                        rs.getObject("activity_id", UUID.class).toString(),
+                        rs.getObject("completed_date", LocalDate.class).toString(),
+                        rs.getString("activity_title"),
+                        rs.getString("subject_name"),
+                        rs.getInt("accuracy"),
+                        rs.getInt("duration_seconds"),
+                        rs.getInt("correct_answers"),
+                        rs.getInt("answered_questions")
                 ))
                 .list();
     }

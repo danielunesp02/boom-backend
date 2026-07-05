@@ -45,7 +45,9 @@ public class ParentDashboardMockService {
                 realMetrics.hasRealData() ? subjectPerformance(realMetrics) : subjectPerformance(labels),
                 learningGaps(labels),
                 currentActionPlan(labels),
-                recentActivitySummaries(period, labels),
+                realMetrics.hasRealData() && !realMetrics.recentActivityMetrics().isEmpty()
+                        ? recentActivitySummaries(realMetrics)
+                        : recentActivitySummaries(period, labels),
                 null
         );
     }
@@ -250,6 +252,22 @@ public class ParentDashboardMockService {
                         new ParentDashboardResponse.ActionPlanItem(labels.actionPlanItem3(), 15, "PENDING")
                 )
         );
+    }
+
+
+    private List<ParentDashboardResponse.RecentActivitySummary> recentActivitySummaries(ParentDashboardRealMetrics realMetrics) {
+        return realMetrics.recentActivityMetrics().stream()
+                .map(activity -> new ParentDashboardResponse.RecentActivitySummary(
+                        activity.activityId(),
+                        LocalDate.parse(activity.completedDate()),
+                        activity.activityTitle(),
+                        activity.subjectName(),
+                        activity.accuracy(),
+                        secondsToMinutes(activity.durationSeconds()),
+                        activity.correctAnswers() + "/" + activity.answeredQuestions()
+                                + " questions answered correctly."
+                ))
+                .toList();
     }
 
     private List<ParentDashboardResponse.RecentActivitySummary> recentActivitySummaries(DashboardPeriod period, Labels labels) {

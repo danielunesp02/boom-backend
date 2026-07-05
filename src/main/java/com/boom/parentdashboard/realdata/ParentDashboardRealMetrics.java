@@ -15,6 +15,7 @@ public record ParentDashboardRealMetrics(
         int totalTimeSpentSeconds,
         int completedActivities,
         List<ParentDashboardRealMetrics.DailyActivityMetric> dailyActivityMetrics,
+        List<ParentDashboardRealMetrics.RecentActivityMetric> recentActivityMetrics,
         List<ParentDashboardRealMetrics.SubjectMetric> subjectMetrics,
         List<ParentDashboardRealMetrics.SkillMetric> skillMetrics
 ) {
@@ -28,6 +29,18 @@ public record ParentDashboardRealMetrics(
             int completedActivities,
             Integer accuracy,
             int totalTimeSpentSeconds
+    ) {
+    }
+
+    public record RecentActivityMetric(
+            String activityId,
+            String completedDate,
+            String activityTitle,
+            String subjectName,
+            int accuracy,
+            int durationSeconds,
+            int correctAnswers,
+            int answeredQuestions
     ) {
     }
 
