@@ -43,8 +43,8 @@ public class ParentDashboardMockService {
                 metrics(current, previous, labels),
                 realMetrics.hasRealData() ? activityHistory(realMetrics) : activityHistory(period),
                 realMetrics.hasRealData() ? subjectPerformance(realMetrics) : subjectPerformance(labels),
-                learningGaps(labels),
-                currentActionPlan(labels),
+                realMetrics.hasRealData() ? learningGaps(realMetrics) : learningGaps(labels),
+                realMetrics.hasRealData() ? currentActionPlan(realMetrics, labels) : currentActionPlan(labels),
                 realMetrics.hasRealData()
                         ? recentActivitySummaries(realMetrics)
                         : recentActivitySummaries(period, labels),
@@ -228,12 +228,167 @@ public class ParentDashboardMockService {
         );
     }
 
+
+    private List<ParentDashboardResponse.LearningGap> learningGaps(ParentDashboardRealMetrics realMetrics) {
+        return realMetrics.learningGapMetrics().stream()
+                .map(gap -> new ParentDashboardResponse.LearningGap(
+                        gap.skillId().toString(),
+                        gap.subjectName(),
+                        gap.skillName(),
+                        gap.priority(),
+                        learningGapTrend(gap),
+                        learningGapRecommendation(gap),
+                        gap.accuracy(),
+                        80
+                ))
+                .toList();
+    }
+
+    private String learningGapTrend(ParentDashboardRealMetrics.LearningGapMetric gap) {
+        if (gap.requiresReassessment()) return "Needs reassessment";
+        if ("CRITICAL_OVERDUE".equals(gap.reviewStatus())) return "Critically overdue";
+        if ("OVERDUE".equals(gap.reviewStatus())) return "Overdue review";
+        if (gap.accuracy() < 60) return "High difficulty";
+        if (gap.accuracy() < 75) return "Needs guided practice";
+        return "Review scheduled";
+    }
+
+    private String learningGapRecommendation(ParentDashboardRealMetrics.LearningGapMetric gap) {
+        String nextReview = gap.nextReviewDate() == null ? "next available session" : gap.nextReviewDate();
+
+        return switch (gap.reviewType()) {
+            case "WORKED_EXAMPLE" -> "Review with a worked example on " + nextReview + ".";
+            case "GUIDED_PRACTICE" -> "Use guided practice on " + nextReview + ".";
+            case "RETRIEVAL_QUIZ" -> "Run a short retrieval quiz on " + nextReview + ".";
+            case "MASTERY_CHECK" -> "Run a mastery check on " + nextReview + ".";
+            case "QUICK_DIAGNOSTIC" -> "Run a quick diagnostic before continuing.";
+            case "REENTRY_ASSESSMENT" -> "Run a reentry assessment before continuing.";
+            default -> "Review this skill on " + nextReview + ".";
+        };
+    }
+
+
     private List<ParentDashboardResponse.LearningGap> learningGaps(Labels labels) {
         return List.of(
                 new ParentDashboardResponse.LearningGap("gap-fractions", labels.math(), labels.fractions(), labels.equivalentFractions(), "MEDIUM", "IN_PROGRESS", 6, 45),
                 new ParentDashboardResponse.LearningGap("gap-science-charts", labels.science(), labels.scientificCharts(), labels.interpretChartEvidence(), "LOW", "OPEN", 2, 18)
         );
     }
+
+
+    private ParentDashboardResponse.CurrentActionPlan currentActionPlan(
+            ParentDashboardRealMetrics realMetrics,
+            Labels labels
+    ) {
+        if (realMetrics.learningGapMetrics().isEmpty()) {
+            return currentActionPlan(labels);
+        }
+
+        ParentDashboardRealMetrics.LearningGapMetric primaryGap = realMetrics.learningGapMetrics().getFirst();
+        int estimatedEffortMinutes = actionPlanEffortMinutes(primaryGap.reviewType());
+        int progressPercentage = actionPlanProgress(primaryGap);
+        List<ParentDashboardResponse.ActionPlanItem> items = actionPlanItems(primaryGap);
+
+        return new ParentDashboardResponse.CurrentActionPlan(
+                "plan-" + primaryGap.skillId(),
+                "Review " + primaryGap.skillName(),
+                actionPlanDescription(primaryGap),
+                primaryGap.subjectName(),
+                primaryGap.topicName(),
+                primaryGap.skillName(),
+                primaryGap.priority(),
+                estimatedEffortMinutes,
+                progressPercentage,
+                items
+        );
+    }
+
+    private String actionPlanDescription(ParentDashboardRealMetrics.LearningGapMetric gap) {
+        String nextReview = gap.nextReviewDate() == null ? "the next study session" : gap.nextReviewDate();
+
+        if (gap.requiresReassessment()) {
+            return "This skill needs a quick reassessment before continuing the study plan.";
+        }
+
+        if ("CRITICAL_OVERDUE".equals(gap.reviewStatus())) {
+            return "This review is critically overdue. Prioritize it before starting new content.";
+        }
+
+        if ("OVERDUE".equals(gap.reviewStatus())) {
+            return "This review is overdue. Complete it before moving to a new related skill.";
+        }
+
+        return "Next recommended review: " + gap.reviewType() + " on " + nextReview + ".";
+    }
+
+    private int actionPlanEffortMinutes(String reviewType) {
+        return switch (reviewType) {
+            case "WORKED_EXAMPLE" -> 30;
+            case "GUIDED_PRACTICE" -> 35;
+            case "RETRIEVAL_QUIZ" -> 20;
+            case "MASTERY_CHECK" -> 25;
+            case "QUICK_DIAGNOSTIC" -> 15;
+            case "REENTRY_ASSESSMENT" -> 30;
+            case "INTERLEAVED_PRACTICE" -> 40;
+            default -> 30;
+        };
+    }
+
+    private int actionPlanProgress(ParentDashboardRealMetrics.LearningGapMetric gap) {
+        if (gap.requiresReassessment()) return 0;
+        if ("CRITICAL_OVERDUE".equals(gap.reviewStatus())) return 0;
+        if ("OVERDUE".equals(gap.reviewStatus())) return 10;
+        if ("DUE".equals(gap.reviewStatus())) return 20;
+        if ("REVIEW_SCHEDULED".equals(gap.masteryStatus())) return 35;
+        if ("LEARNING".equals(gap.masteryStatus())) return 25;
+        return 15;
+    }
+
+    private List<ParentDashboardResponse.ActionPlanItem> actionPlanItems(
+            ParentDashboardRealMetrics.LearningGapMetric gap
+    ) {
+        return switch (gap.reviewType()) {
+            case "WORKED_EXAMPLE" -> List.of(
+                    new ParentDashboardResponse.ActionPlanItem("Review a worked example", 10, actionItemStatus(gap, 0)),
+                    new ParentDashboardResponse.ActionPlanItem("Solve guided practice questions", 15, actionItemStatus(gap, 1)),
+                    new ParentDashboardResponse.ActionPlanItem("Run a short mastery check", 5, "PENDING")
+            );
+            case "GUIDED_PRACTICE" -> List.of(
+                    new ParentDashboardResponse.ActionPlanItem("Revisit the core concept", 5, actionItemStatus(gap, 0)),
+                    new ParentDashboardResponse.ActionPlanItem("Complete guided practice", 20, actionItemStatus(gap, 1)),
+                    new ParentDashboardResponse.ActionPlanItem("Schedule spaced review", 10, "PENDING")
+            );
+            case "RETRIEVAL_QUIZ" -> List.of(
+                    new ParentDashboardResponse.ActionPlanItem("Answer retrieval quiz", 10, actionItemStatus(gap, 0)),
+                    new ParentDashboardResponse.ActionPlanItem("Review incorrect answers", 10, "PENDING")
+            );
+            case "MASTERY_CHECK" -> List.of(
+                    new ParentDashboardResponse.ActionPlanItem("Complete mastery check", 15, actionItemStatus(gap, 0)),
+                    new ParentDashboardResponse.ActionPlanItem("Confirm next review interval", 10, "PENDING")
+            );
+            case "QUICK_DIAGNOSTIC", "REENTRY_ASSESSMENT" -> List.of(
+                    new ParentDashboardResponse.ActionPlanItem("Run diagnostic assessment", 15, actionItemStatus(gap, 0)),
+                    new ParentDashboardResponse.ActionPlanItem("Rebuild the study plan", 15, "PENDING")
+            );
+            default -> List.of(
+                    new ParentDashboardResponse.ActionPlanItem("Review the skill", 15, actionItemStatus(gap, 0)),
+                    new ParentDashboardResponse.ActionPlanItem("Practice related questions", 15, "PENDING")
+            );
+        };
+    }
+
+    private String actionItemStatus(ParentDashboardRealMetrics.LearningGapMetric gap, int itemIndex) {
+        if ("OVERDUE".equals(gap.reviewStatus()) || "CRITICAL_OVERDUE".equals(gap.reviewStatus())) {
+            return itemIndex == 0 ? "IN_PROGRESS" : "PENDING";
+        }
+
+        if ("DUE".equals(gap.reviewStatus())) {
+            return itemIndex == 0 ? "IN_PROGRESS" : "PENDING";
+        }
+
+        return "PENDING";
+    }
+
 
     private ParentDashboardResponse.CurrentActionPlan currentActionPlan(Labels labels) {
         return new ParentDashboardResponse.CurrentActionPlan(
