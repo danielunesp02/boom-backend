@@ -45,7 +45,7 @@ public class ParentDashboardMockService {
                 realMetrics.hasRealData() ? subjectPerformance(realMetrics) : subjectPerformance(labels),
                 learningGaps(labels),
                 currentActionPlan(labels),
-                realMetrics.hasRealData() && !realMetrics.recentActivityMetrics().isEmpty()
+                realMetrics.hasRealData()
                         ? recentActivitySummaries(realMetrics)
                         : recentActivitySummaries(period, labels),
                 null
