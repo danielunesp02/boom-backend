@@ -35,7 +35,10 @@ public class SecurityConfig {
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/logout",
                                 "/api/v1/auth/phone-verification/start",
-                                "/api/v1/auth/phone-verification/confirm"
+                                "/api/v1/auth/phone-verification/confirm",
+                                "/api/v1/students/{studentId}/subject-learning-strategies",
+                                "/api/v1/students/{studentId}/subject-learning-strategies/**",
+                                "/api/v1/students/*/subject-learning-strategies"
                         ).permitAll()
                         .requestMatchers(
                                 "/api/v1/auth/me",
