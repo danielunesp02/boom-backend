@@ -30,6 +30,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/v1/system/ping",
+                                "/api/v1/system/status",
                                 "/actuator/health",
                                 "/api/v1/auth/signup",
                                 "/api/v1/auth/login",
